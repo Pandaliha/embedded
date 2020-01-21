@@ -1,172 +1,117 @@
-/*@!Encoding:1252*/
+/*@!Encoding:1252*/includes {
+
+}
+
 variables {
-  
-  // Messages sent from component
-  message ACC_Brake acc_brake;
-  message ACC_Accelerate acc_accelerate;
-  message ACC_Slowdown acc_slowdown;
-  message ACC_Error acc_error;
-  
-  //message ACC_State acc_state;
-  message Display_State display_state;
-  
-  // State of Adaptive Cruise Control
-  byte acc = 0;
+  byte distance; // ACC configured distance (in 1/10 seconds)
   byte speed;
-  byte distance;
-  
-  // State of cars
+  long distance_curr;
   byte lane_car1_current;
+  byte speed_car1_current;
   byte lane_car2_current;
-  int  speed_car1_current;
-  int  speed_car2_current;
-  long distance_current;
-  
-  // Max Values and Parameters
-  byte Min_Distance = 10;
-  byte Max_Distance = 30;
-  int Max_Speed = 180;
-  int Min_Speed = 30;
-  int Off_Speed = 25;
-  double criticalDistanceFactor = 0.3;
-  
-  // Timer for updating display
-  msTimer timer_display;
-  const byte TIMEOUT_DISPLAY = 10;
-  // Timer for sending Accelerate Messages
-  msTimer timer_accelerate;
-  const byte TIMEOUT_ACCELERATE = 10;
-  // Timer for sending Slowdown Messages
-  msTimer timer_slowdown;
-  const byte TIMEOUT_SLOWDOWN = 10;
-  // Timer for sending Brake Messages
-  msTimer timer_brake;
-  const byte TIMEOUT_BRAKE = 5;
-  
+  byte speed_car2_current;
+  byte position_car1;
+  byte acc_err;
+  byte acc;
+  float distance_s;
+
+  message Distance_Adjust distance_adjust;
+  message Distance_Current distance_current;
+  message Speed_Adjust speed_adjust;
+  message Display_State display_state;
+  message Car1_State car1_state;
+  message ACC_Error acc_error;
+  message ACC_Accelerate acc_accelerate;
+  message ACC_Brake acc_brake;
+  message ACC_Slowdown acc_slowdown;
 }
 
-// Initialize component
 on start {
-  setTimer(timer_display, TIMEOUT_DISPLAY);
   sendSettings();
 }
 
-// Send periodically updates to display
-on timer timer_display {
-  setTimer(timer_display, TIMEOUT_DISPLAY);
-  sendSettings();
-}
-
-// Adjust Distance to request sent from display
-on message Distance_Adjust {
-  if(acc==1) {
-    if(this.Distance_Adjust >= Min_Distance && this.Distance_Adjust <= Max_Distance) {
-     distance =  this.Distance_Adjust;
-    } 
-  }
-}
-
-// Adjust Speed from request sent from display
-on message Speed_Adjust {
-  if(acc == 1) {
-    if(this.Speed_Adjust >= Min_Speed && this.Speed_Adjust <= Max_Speed) {
-      speed = this.Speed_Adjust;
-    } 
-  }
-}
-
-// Turn on ACC and adjust values if neccessary
 on message ACC_State {
-  if(speed_car1_current > Off_Speed && speed_car1_current < Max_Speed) {
+  if (speed_car1_current > 25 && speed_car1_current < 180) {
     acc = this.ACC_State;
-    if(acc == 1) {
-      initAcc(); 
-    } 
+    if (acc == 1) {
+      speed = 80;
+      distance = 20;
+    }
+
+    sendSettings();
   }
 }
 
-// React on driver breaking manually
-on message Manual_Brake {
-  acc = 0;
-}
+//Gem
 
-// React on driver accelerating manually
-on message Manual_Accelerate {
-  acc = 0;
-}
-
-// Update State of car we control
 on message Car1_State {
+  lane_car1_current = this.Lane_Car1_Current;
   speed_car1_current = this.Speed_Car1_Current;
-  if(this.Speed_Car1_Current < Off_Speed)
-  {
-    acc = 0;
-    acc_error.ACC_Error = 1;
+  position_car1 = this.Position_Car1;
+
+  if (speed_car1_current < 25 && display_state.ACC_State == 1) {
+    display_state.ACC_State = 0;
+    acc_err = 1;
+    acc_error.ACC_Error = acc_err;
     output(acc_error);
-  } else {
-    lane_car1_current = this.Lane_Car1_Current;    
   }
+  sendSettings();
 }
 
-// Update State of other car
 on message Car2_State {
   speed_car2_current = this.Speed_Car2_Current;
   lane_car2_current = this.Lane_Car2_Current;
 }
 
-// Update on Distance between both cars and handle
-on message Distance_Current {
-  distance_current = this.Distance_Current;
-  if(ACCisOn()) {
-      if(getCurrentDistanceInSec() <= ((double)distance)) {
-        // Distance to car in front is too short
-        if(lane_car1_current == lane_car2_current) {
-          if(situationCritical() == 1) {
-            manageBrake();
-          } else {
-            manageSlowdown();
-          }
-        }
-      } else if(speed_car1_current > speed) {
-        // Car is faster than ACC speed
-        manageSlowdown();
-      } else if(speed_car1_current < speed) {
-        // Car is slower than ACC speed
-        manageAccelerate();
-      }
+on message Distance_Adjust {
+  if (acc == 1) {
+    if (this.Distance_Adjust >= 10 && this.Distance_Adjust <= 30) {
+      distance = this.Distance_Adjust;
     }
-}
-
-// ======================= Send messages =======================
-
-manageAccelerate() {
-  if(!isTimerActive(timer_accelerate)) {
-    setTimer(timer_accelerate, TIMEOUT_ACCELERATE);
   }
 }
 
-manageBrake() {
-  if(!isTimerActive(timer_brake)) {
-    setTimer(timer_brake, TIMEOUT_BRAKE);
+// Adjust Speed from request sent from display
+on message Speed_Adjust {
+  if (acc == 1) {
+    if (this.Speed_Adjust >= 30 && this.Speed_Adjust <= 180) {
+      speed = this.Speed_Adjust;
+    }
   }
 }
 
-manageSlowdown() {
-  if(!isTimerActive(timer_slowdown)) {
-    setTimer(timer_slowdown,TIMEOUT_SLOWDOWN);
+on message Distance_Current {
+  distance_curr = this.Distance_Current;
+  distance_s = ((distance_curr / 100) / ((float) speed_car1_current / 3.6))*10; // conversion of distance_curr from cm to meter and 
+  // convertion of speed_car1_current from km/h to m/s
+  if (acc == 1) {
+    if (distance_s <= ((double) distance)) {
+      // Distance to car in front is too short
+      if (lane_car1_current == lane_car2_current) {
+        if (distance_s <= 7) {
+          sendACCBrake();
+        } else {
+          sendACCSlowdown();
+        }
+      }
+    } else if (speed_car1_current > speed) {
+      // Car is faster than ACC speed
+      sendACCSlowdown();
+    } else if (speed_car1_current < speed) {
+      // Car is slower than ACC speed
+      sendACCAccelerate();
+    }
   }
 }
 
-on timer timer_accelerate {
-  sendACCAccelerate(); 
+on message Manual_Accelerate {
+  display_state.ACC_State = 0;
+  sendSettings();
 }
 
-on timer timer_brake {
-  sendACCBrake(); 
-}
-
-on timer timer_slowdown {
-  sendACCSlowdown();
+on message Manual_Brake {
+  display_state.ACC_State = 0;
+  sendSettings();
 }
 
 sendACCAccelerate() {
@@ -188,49 +133,6 @@ sendSettings() {
   display_state.ACC_State = acc;
   display_state.Speed_Adjusted = speed;
   display_state.Distance_Adjusted = distance;
-  
+
   output(display_state);
-}
-
-// ==================== Utilities ====================
-
-// Set Distance to valid value and speed to current speed of Car 1
-initAcc() {
-  if(distance < Min_Distance || distance > Max_Distance) {
-    // Mid between the distances max and min value
-    distance = (Min_Distance + ((Max_Distance - Min_Distance) / 2));  
-  }
-  if(speed_car1_current > Min_Speed && speed_car1_current < Max_Speed) {
-    // Set desired speed to current speed of car 1
-    speed = speed_car1_current;
-  }
-}
-
-byte ACCisOn() {
-  return acc;
-}
-
-// Converts current distance in m into sec depending on current speed
-double getCurrentDistanceInSec() {
-   return(((double)distance_current/10)/getCurrentSpeedInMperS());
-}
-
-// Convert Speed in Meters per Second 
-double getCurrentSpeedInMperS() {
-  return ((double)speed_car1_current/3.6);
-}
-
-// Boundary, when the car should brake instead of slowdown
-double getCriticalDistanceInSec() {
-  return criticalDistanceFactor * (double)distance;
-}
-
-// situation is critical, if the actual distance is smaller
-// or equal compared to the ciritical distance
-byte situationCritical() {
-  if(getCurrentDistanceInSec() <= getCriticalDistanceInSec()) {
-    return 1;
-  } else {
-    return 0; 
-  }
 }
