@@ -42,8 +42,6 @@ on message ACC_State {
   }
 }
 
-//Gem
-
 on message Car1_State {
   lane_car1_current = this.Lane_Car1_Current;
   speed_car1_current = this.Speed_Car1_Current;
@@ -71,7 +69,6 @@ on message Distance_Adjust {
   }
 }
 
-// Adjust Speed from request sent from display
 on message Speed_Adjust {
   if (acc == 1) {
     if (this.Speed_Adjust >= 30 && this.Speed_Adjust <= 180) {
@@ -83,22 +80,26 @@ on message Speed_Adjust {
 on message Distance_Current {
   distance_curr = this.Distance_Current;
   distance_s = ((distance_curr / 100) / ((float) speed_car1_current / 3.6))*10; // conversion of distance_curr from cm to meter and 
-  // convertion of speed_car1_current from km/h to m/s
+                                                                                // convertion of speed_car1_current from km/h to m/s
   if (acc == 1) {
+    // Zu nah am Vordermann
     if (distance_s <= ((double) distance)) {
-      // Distance to car in front is too short
+      // Selbe Spur
       if (lane_car1_current == lane_car2_current) {
+        // Näher als kritische Distanz von 0,7s
         if (distance_s <= 7) {
           sendACCBrake();
         } else {
           sendACCSlowdown();
         }
       }
-    } else if (speed_car1_current > speed) {
-      // Car is faster than ACC speed
+    } 
+    // Schneller als ACC
+    else if (speed_car1_current > speed) {     
       sendACCSlowdown();
-    } else if (speed_car1_current < speed) {
-      // Car is slower than ACC speed
+    } 
+    // Langsamer als ACC
+    else if (speed_car1_current < speed) {
       sendACCAccelerate();
     }
   }
