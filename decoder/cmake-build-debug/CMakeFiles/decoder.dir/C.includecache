@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/she/source/repos/decoder/Generator.h
+stdio.h
+-
+string.h
+-
+
+C:/Users/she/source/repos/decoder/main.c
+stdio.h
+-
+Generator.h
+C:/Users/she/source/repos/decoder/Generator.h
+

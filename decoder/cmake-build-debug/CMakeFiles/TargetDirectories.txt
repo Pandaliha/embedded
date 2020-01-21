@@ -1,0 +1,3 @@
+C:/Users/she/source/repos/decoder/cmake-build-debug/CMakeFiles/decoder.dir
+C:/Users/she/source/repos/decoder/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/she/source/repos/decoder/cmake-build-debug/CMakeFiles/rebuild_cache.dir
