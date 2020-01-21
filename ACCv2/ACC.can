@@ -14,6 +14,7 @@ variables {
   byte acc_err;
   byte acc;
   float distance_s;
+  int counter = 0;
 
   message Distance_Adjust distance_adjust;
   message Distance_Current distance_current;
@@ -82,6 +83,13 @@ on message Distance_Current {
   distance_s = ((distance_curr / 100) / ((float) speed_car1_current / 3.6))*10; // conversion of distance_curr from cm to meter and 
                                                                                 // convertion of speed_car1_current from km/h to m/s
   if (acc == 1) {
+   
+    // Counter, damit Tacho Zeiger sich nicht zu schnell bewegt
+    counter++;
+    if ((counter % 10) != 0)
+  {
+    return;
+  }
     // Zu nah am Vordermann
     if (distance_s <= ((double) distance)) {
       // Selbe Spur
@@ -106,12 +114,12 @@ on message Distance_Current {
 }
 
 on message Manual_Accelerate {
-  display_state.ACC_State = 0;
+  acc = 0;
   sendSettings();
 }
 
 on message Manual_Brake {
-  display_state.ACC_State = 0;
+  acc = 0;
   sendSettings();
 }
 
